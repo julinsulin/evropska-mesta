@@ -110,16 +110,14 @@ body{
   color: rgba(72,38,29,0.85);
 }
 
-/* Viewport that can scroll when zoomed */
 #viewport{
   width: 100%;
   overflow: auto;
   background: rgba(255,255,255,0.12);
 
-  /* IMPORTANT: allow custom pinch handling */
-  touch-action: none;
+  touch-action: none;                 /* we handle pan/pinch ourselves */
+  -webkit-overflow-scrolling: touch;  /* nicer scroll on iOS */
 }
-
 /* Stage has explicit px size so scrollbars work */
 #stage{
   position: relative;
@@ -419,10 +417,15 @@ viewport.addEventListener("wheel", (e)=>{
   applyZoom(true);
 }, { passive:false });
 
-/* 2) Touch pinch (phones/tablets) using pointer events */
+/* 2) Touch: 1-finger pan + 2-finger pinch zoom */
 const pointers = new Map();
+
 let pinchStartDist = 0;
 let pinchStartZoom = 1;
+
+let panPointerId = null;
+let panStartX = 0, panStartY = 0;
+let panStartScrollLeft = 0, panStartScrollTop = 0;
 
 function dist(a,b){
   const dx = a.x - b.x;
@@ -430,11 +433,28 @@ function dist(a,b){
   return Math.hypot(dx, dy);
 }
 
+function startPan(pointerId, x, y){
+  panPointerId = pointerId;
+  panStartX = x;
+  panStartY = y;
+  panStartScrollLeft = viewport.scrollLeft;
+  panStartScrollTop  = viewport.scrollTop;
+}
+
+function stopPan(pointerId){
+  if (panPointerId === pointerId) panPointerId = null;
+}
+
 viewport.addEventListener("pointerdown", (e)=>{
   viewport.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  if(pointers.size === 2){
+  if (pointers.size === 1){
+    startPan(e.pointerId, e.clientX, e.clientY);
+  }
+
+  if (pointers.size === 2){
+    panPointerId = null; // stop 1-finger pan when pinch starts
     const pts = Array.from(pointers.values());
     pinchStartDist = dist(pts[0], pts[1]);
     pinchStartZoom = zoom;
@@ -442,29 +462,54 @@ viewport.addEventListener("pointerdown", (e)=>{
 });
 
 viewport.addEventListener("pointermove", (e)=>{
-  if(!pointers.has(e.pointerId)) return;
+  if (!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  if(pointers.size === 2){
+  // Two-finger pinch zoom
+  if (pointers.size === 2){
     const pts = Array.from(pointers.values());
     const d = dist(pts[0], pts[1]);
-    if(pinchStartDist > 0){
+
+    if (pinchStartDist > 0){
       const scale = d / pinchStartDist;
       let newZoom = pinchStartZoom * scale;
       newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
-      if(Math.abs(newZoom - zoom) > 0.001){
+
+      if (Math.abs(newZoom - zoom) > 0.0005){
         zoom = newZoom;
         applyZoom(true);
       }
     }
+
+    e.preventDefault();
+    return;
   }
-});
+
+  // One-finger pan (only when zoomed)
+  if (pointers.size === 1 && panPointerId === e.pointerId && zoom > 1){
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+
+    viewport.scrollLeft = panStartScrollLeft - dx;
+    viewport.scrollTop  = panStartScrollTop  - dy;
+
+    e.preventDefault();
+  }
+}, { passive:false });
 
 function endPointer(e){
   pointers.delete(e.pointerId);
-  if(pointers.size < 2){
+  stopPan(e.pointerId);
+
+  if (pointers.size < 2){
     pinchStartDist = 0;
     pinchStartZoom = zoom;
+  }
+
+  // If one pointer remains, restart pan from its current position
+  if (pointers.size === 1){
+    const [id, p] = pointers.entries().next().value;
+    startPan(id, p.x, p.y);
   }
 }
 viewport.addEventListener("pointerup", endPointer);
