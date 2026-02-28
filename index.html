@@ -187,6 +187,24 @@ button.danger{ background: var(--claret); color: white; }
 .pad-bottom{
   height: 90px;
 }
+
+  /* Wrong feedback: quick shake + red border */
+@keyframes shake {
+  0%,100% { transform: translateX(-50%) translateX(0); }
+  20% { transform: translateX(-50%) translateX(-8px); }
+  40% { transform: translateX(-50%) translateX(8px); }
+  60% { transform: translateX(-50%) translateX(-6px); }
+  80% { transform: translateX(-50%) translateX(6px); }
+}
+
+#findSticky.wrong {
+  animation: shake 220ms linear;
+}
+
+#findText.wrong {
+  border-color: var(--bad);
+  box-shadow: 0 10px 25px rgba(204,0,0,0.28);
+}
 </style>
 </head>
 
@@ -227,6 +245,27 @@ button.danger{ background: var(--claret); color: white; }
   </div>
 
 <script>
+  // Wrong click marker + reveal correct hotspot after 3 misses
+let wrongMark = null;        // {x,y, until}
+let revealIndex = -1;        // index of hotspot to reveal
+let revealUntil = 0;         // timestamp ms
+
+  function flashWrong(){
+  const sticky = document.getElementById("findSticky");
+  const text = document.getElementById("findText");
+  sticky.classList.add("wrong");
+  text.classList.add("wrong");
+  setTimeout(() => {
+    sticky.classList.remove("wrong");
+    text.classList.remove("wrong");
+  }, 260);
+}
+
+let wrongMark = null;
+let revealIndex = -1;
+let revealUntil = 0;
+
+  
 /* ========= POINTS (hardcoded) ========= */
 const points = JSON.parse(`[{"x":0.19773859350081582,"y":0.8137879086784197,"name":"Madrid"},{"x":0.08920849116721612,"y":0.8344482505066446,"name":"Lisabon"},{"x":0.112537391668831,"y":0.7759106153266737,"name":"Porto"},{"x":0.37371964728473683,"y":0.53085600530856,"name":"Rotterdam"},{"x":0.37473394730654613,"y":0.5216736311626823,"name":"Haag"},{"x":0.21903889395881201,"y":0.7420506106637493,"name":"Bilbao"},{"x":0.14296639232311129,"y":0.880934019620151,"name":"Sevilla"},{"x":0.2504821946349016,"y":0.847647913341344,"name":"Valencie"},{"x":0.3874126975791629,"y":0.5153607489373913,"name":"Amsterdam"},{"x":0.3701695972084041,"y":0.5589770261303108,"name":"Brusel"},{"x":0.39248419768820964,"y":0.591115335640883,"name":"Lucemburk"},{"x":0.16972547743055555,"y":0.9104166666666667,"name":"Malága"},{"x":0.30080661252248203,"y":0.8104166666666667,"name":"Barcelona"},{"x":0.2691409450564548,"y":0.70625,"name":"Bourdeaux"},{"x":0.36340153658323343,"y":0.7620833333333333,"name":"Marseilles"},{"x":0.22348347103567145,"y":0.5970833333333333,"name":"Brest"},{"x":0.3324722799885092,"y":0.6204166666666666,"name":"Paříž"},{"x":0.3479369082858713,"y":0.56375,"name":"Lille"},{"x":0.41495029757444046,"y":0.62625,"name":"Štrasburk"},{"x":0.35382819525629494,"y":0.6970833333333334,"name":"Lyon"},{"x":0.2698773559277578,"y":0.6204166666666666,"name":"Rennes"},{"x":0.15205161651928456,"y":0.11208333333333333,"name":"Reykjavik"},{"x":0.1844536948566147,"y":0.485,"name":"Cork"},{"x":0.22716552539218623,"y":0.4583333333333333,"name":"Dublin"},{"x":0.2382116884617306,"y":0.43583333333333335,"name":"Newcastle"},{"x":0.23894809933303357,"y":0.42583333333333334,"name":"Belfast"},{"x":0.2698773559277578,"y":0.39916666666666667,"name":"Glasgow"},{"x":0.3022794342650879,"y":0.5258333333333334,"name":"Londýn"},{"x":0.26177683634342525,"y":0.5158333333333334,"name":"Cardiff"},{"x":0.28902403858163467,"y":0.49416666666666664,"name":"Birmingham"},{"x":0.27355941028427255,"y":0.47333333333333333,"name":"Liverpool"},{"x":0.2846055733538169,"y":0.4691666666666667,"name":"Manchester"},{"x":0.475335989021283,"y":0.31875,"name":"Oslo"},{"x":0.41495029757444046,"y":0.30541666666666667,"name":"Bergen"},{"x":0.5673873479341527,"y":0.33625,"name":"Stockholm"},{"x":0.560759650092426,"y":0.32375,"name":"Uppsala"},{"x":0.5040560130020983,"y":0.43875,"name":"Malmo"},{"x":0.4959554934177658,"y":0.43625,"name":"Kodaň"},{"x":0.48785497383343324,"y":0.3720833333333333,"name":"Goteborg"},{"x":0.6542838307479016,"y":0.29791666666666666,"name":"Helsinky"},{"x":0.6167268763114508,"y":0.29875,"name":"Turku"},{"x":0.7154059330660472,"y":0.2970833333333333,"name":"Petrohrad"},{"x":0.6564930633618106,"y":0.32208333333333333,"name":"Tallin"},{"x":0.6461833111635692,"y":0.39375,"name":"Riga"},{"x":0.6712212807878697,"y":0.45458333333333334,"name":"Vilnius"},{"x":0.7198243982938649,"y":0.4675,"name":"Minsk"},{"x":0.6167268763114508,"y":0.5266666666666666,"name":"Varšava"},{"x":0.5806427436176059,"y":0.4725,"name":"Gdaňsk"},{"x":0.5600232392211231,"y":0.5591666666666667,"name":"Wroclaw"},{"x":0.6093627675984212,"y":0.585,"name":"Krakov"},{"x":0.6012622480140888,"y":0.5475,"name":"Lodž"},{"x":0.5519227196367905,"y":0.525,"name":"Poznaň"},{"x":0.5025831912594924,"y":0.5241666666666667,"name":"Berlín"},{"x":0.45839853898131494,"y":0.5025,"name":"Hamburk"},{"x":0.5114201217151279,"y":0.5625,"name":"Drážďany"},{"x":0.4804908651204037,"y":0.64,"name":"Mnichov"},{"x":0.4385154454561351,"y":0.5816666666666667,"name":"Franfurt nad Mohanem"},{"x":0.47091752379346524,"y":0.5283333333333333,"name":"Wolfsburg"},{"x":0.48638215209082736,"y":0.5566666666666666,"name":"Lipsko"},{"x":0.4090590106040168,"y":0.5458333333333333,"name":"Dusseldorf"},{"x":0.41347747583183453,"y":0.5566666666666666,"name":"Kolín na Rýnem"},{"x":0.35456460612759794,"y":0.5441666666666667,"name":"Bruggy"},{"x":0.3722384670388689,"y":0.5466666666666666,"name":"Antverpy"},{"x":0.388439506207534,"y":0.5658333333333333,"name":"Lutych"},{"x":0.40832259973271384,"y":0.6683333333333333,"name":"Bern"},{"x":0.4421974998126499,"y":0.6683333333333333,"name":"Vaduz"},{"x":0.4296785150004996,"y":0.6566666666666666,"name":"Curych"},{"x":0.38549386272232217,"y":0.6866666666666666,"name":"Ženeva"},{"x":0.3928579714353517,"y":0.6783333333333333,"name":"Lausane"},{"x":0.40464054537619903,"y":0.7225,"name":"Turín"},{"x":0.42526004977268184,"y":0.7391666666666666,"name":"Janov"},{"x":0.4348333910996203,"y":0.7125,"name":"Milán"},{"x":0.4458795541691647,"y":0.705,"name":"Bergamo"},{"x":0.48859138470473623,"y":0.7133333333333334,"name":"Benátky"},{"x":0.4016949018909872,"y":0.7558333333333334,"name":"Monako/Nice"},{"x":0.4657626476943445,"y":0.7383333333333333,"name":"Bologna"},{"x":0.46208059333782975,"y":0.7608333333333334,"name":"Florencie"},{"x":0.4900642064473421,"y":0.7566666666666667,"name":"San Marino/Rimini"},{"x":0.48932779557603917,"y":0.8133333333333334,"name":"Řím/Vatikán"},{"x":0.5180478195568545,"y":0.8408333333333333,"name":"Neapol"},{"x":0.5033196021307954,"y":0.915,"name":"Palermo"},{"x":0.47459957814998,"y":0.665,"name":"Innsbruck"},{"x":0.5018467803881894,"y":0.65,"name":"Salzburk"},{"x":0.5202570521707633,"y":0.6408333333333334,"name":"Linz"},{"x":0.5519227196367905,"y":0.6416666666666667,"name":"Vídeň"},{"x":0.5681237588054556,"y":0.6408333333333334,"name":"Bratislava"},{"x":0.6285094502522982,"y":0.6241666666666666,"name":"Košice"},{"x":0.6299822719949041,"y":0.6133333333333333,"name":"Prešov"},{"x":0.5997894262714828,"y":0.6191666666666666,"name":"Banská Bystrica"},{"x":0.5924253175584533,"y":0.6116666666666667,"name":"Žilina"},{"x":0.5821155653602118,"y":0.6266666666666667,"name":"Nitra"},{"x":0.6005258371427857,"y":0.6583333333333333,"name":"Budapešť"},{"x":0.5246755173985811,"y":0.6966666666666667,"name":"Lublaň"},{"x":0.5497134870228817,"y":0.7041666666666667,"name":"Záhřeb"},{"x":0.5909524958158473,"y":0.7541666666666667,"name":"Sarajevo"},{"x":0.5651781153202438,"y":0.7333333333333333,"name":"Banja Luka"},{"x":0.5578140066072143,"y":0.7666666666666667,"name":"Split"},{"x":0.578433511003697,"y":0.7816666666666666,"name":"Dubrovnik"},{"x":0.597580193657574,"y":0.6958333333333333,"name":"Szged"},{"x":0.5857976197167266,"y":0.6966666666666667,"name":"Pécs"},{"x":0.6402920241931455,"y":0.6516666666666666,"name":"Debrecen"},{"x":0.6078899458558154,"y":0.79,"name":"Podgorica"},{"x":0.6299822719949041,"y":0.7375,"name":"Bělohrad"},{"x":0.6432376676783573,"y":0.7858333333333334,"name":"Priština"},{"x":0.6211453415392686,"y":0.8266666666666667,"name":"Tirana"},{"x":0.6520745981339928,"y":0.8041666666666667,"name":"Skopje"},{"x":0.6181996980540567,"y":0.7208333333333333,"name":"Novi Sad"},{"x":0.7028869482538969,"y":0.9075,"name":"Athény"},{"x":0.6785853895008993,"y":0.8383333333333334,"name":"Soluň"},{"x":0.6852130873426259,"y":0.7775,"name":"Sofie"},{"x":0.7117238787095324,"y":0.7875,"name":"Plovdiv"},{"x":0.7617998179581335,"y":0.7516666666666667,"name":"Varna"},{"x":0.753699298373801,"y":0.7783333333333333,"name":"Burgas"},{"x":0.7316069722347123,"y":0.7125,"name":"Bukuršť"},{"x":0.6704848699165668,"y":0.6633333333333333,"name":"Kluž"},{"x":0.7566449418590128,"y":0.645,"name":"Kišiněv"},{"x":0.7743188027702838,"y":0.5491666666666667,"name":"Kyjev"},{"x":0.8766799138813949,"y":0.5416666666666666,"name":"Charkov"},{"x":0.7919926636815547,"y":0.6525,"name":"Odesa "},{"x":0.8501691225144884,"y":0.6925,"name":"Sevastopol"},{"x":0.6844766764713229,"y":0.58,"name":"Lvov"},{"x":0.910554813961331,"y":0.5608333333333333,"name":"Luhansk"},{"x":0.8781527356240008,"y":0.5933333333333334,"name":"Doněck"},{"x":0.961367164081235,"y":0.685,"name":"Soči"},{"x":0.926019442258693,"y":0.5883333333333334,"name":"Rostov na Donu"},{"x":0.9878779554481415,"y":0.5491666666666667,"name":"Volgograd"},{"x":0.8516419442570944,"y":0.40291666666666665,"name":"Moskva"},{"x":0.9495845901403877,"y":0.38375,"name":"Nižnij Novgorod"},{"x":0.5497134870228817,"y":0.08958333333333333,"name":"Narvik"},{"x":0.5070016564873101,"y":0.7058333333333333,"name":"Terst"}]`);
 
@@ -317,12 +356,14 @@ function normToPx(p){
 
 function drawPoints(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   const radius = mmToPx(DOT_MM) / 2;
 
   const good = getComputedStyle(document.documentElement).getPropertyValue('--good').trim();
   const bad  = getComputedStyle(document.documentElement).getPropertyValue('--bad').trim();
   const dot  = getComputedStyle(document.documentElement).getPropertyValue('--dot').trim();
 
+  // Draw dots
   for(let i=0;i<points.length;i++){
     const pos = normToPx(points[i]);
     ctx.beginPath();
@@ -333,6 +374,34 @@ function drawPoints(){
     else ctx.fillStyle = dot;
 
     ctx.fill();
+  }
+
+  const now = performance.now();
+
+  // Wrong click marker (a red X)
+  if (wrongMark && now < wrongMark.until){
+    ctx.save();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = bad;
+    ctx.beginPath();
+    ctx.moveTo(wrongMark.x - 10, wrongMark.y - 10);
+    ctx.lineTo(wrongMark.x + 10, wrongMark.y + 10);
+    ctx.moveTo(wrongMark.x + 10, wrongMark.y - 10);
+    ctx.lineTo(wrongMark.x - 10, wrongMark.y + 10);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Reveal correct hotspot after 3 misses (big ring)
+  if (revealIndex >= 0 && now < revealUntil){
+    const pos = normToPx(points[revealIndex]);
+    ctx.save();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = bad;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 22, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -351,27 +420,43 @@ function pickNext(){
   setTarget("Find: " + (points[currentIndex].name || "—"));
 }
 
-canvas.addEventListener("click", (e)=>{
+viewport.addEventListener("click", (e)=>{
   if(currentIndex < 0) return;
 
-  const rect = canvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-  const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
-
+  const pos = getEventPosInCanvas(e);
   const target = normToPx(points[currentIndex]);
-  const dist = Math.hypot(target.x - x, target.y - y);
+  const dist = Math.hypot(target.x - pos.x, target.y - pos.y);
 
   if(dist <= HIT_RADIUS_PX){
+    // correct
     solved.add(currentIndex);
-    pickNext();
+    attempts = 0;
     drawPoints();
+    pickNext();
   } else {
+    // wrong
     attempts++;
+
+    flashWrong();
+
+    // mark wrong click position
+    wrongMark = {
+      x: pos.x,
+      y: pos.y,
+      until: performance.now() + 600
+    };
+
     if(attempts >= 3){
+      // reveal correct hotspot
+      revealIndex = currentIndex;
+      revealUntil = performance.now() + 1200;
+
       failed.add(currentIndex);
+      attempts = 0;
       pickNext();
-      drawPoints();
     }
+
+    drawPoints();
   }
 });
 
