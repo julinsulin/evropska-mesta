@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Map Quiz</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --claret:#670628;
+  --pink:#FFBDC5;
+  --choco:#48261D;
+  --sky:#B2CDFF;
+  --paper:#fff7f9;
+
+  --dot:#0420f9;
+  --good:#16a34a;
+  --bad:#cc0000;
+}
+
+*{ box-sizing:border-box; }
+
+html, body{
+  margin:0;
+  padding:0;
+  overflow-x:hidden;
+}
+
+body{
+  font-family: Inter, Arial, sans-serif;
+  background: var(--paper);
+  color: var(--choco);
+}
+
+/* Title bar scrolls away */
+#pageTitleBar{
+  background: var(--claret);
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+  padding: 12px;
+  text-align: center;
+}
+
+#topTitle{
+  font-family: Fraunces, serif;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--pink);
+  font-size: clamp(18px, 2vw, 26px);
+}
+
+/* ONLY Find follows when scrolling */
+#findSticky{
+  position: fixed;        /* ← this is the key */
+  top: 70px;              /* distance from top (adjust if needed) */
+  left: 50%;
+  transform: translateX(-50%);
+
+  z-index: 9999;
+
+  background: transparent;
+  padding: 10px 12px;
+  display:flex;
+  justify-content:center;
+}
+
+#findText{
+  font-family: Fraunces, serif;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--choco);
+  background: var(--pink);
+  font-size: clamp(28px, 3vw, 46px);
+  padding: 12px 26px;
+  border-radius: 18px;
+  border: 1px solid rgba(72,38,29,0.25);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(1100px, 95vw);
+}
+
+.container{
+  width: 100%;
+  padding: 14px 0 24px;
+  margin: 0;
+}
+
+.map-card{
+  width: 97vw;              /* 90% of screen */
+  margin: 0 auto;           /* centers it */
+  background: var(--pink);
+  border-radius: 24px;
+  border: 2px solid rgba(72,38,29,0.25);
+  box-shadow: 10px 10px 0 rgba(0,0,0,0.16);
+  overflow: hidden;
+}
+
+/* Header */
+.map-header{
+  padding: 12px 14px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  border-bottom: 1px solid rgba(72,38,29,0.18);
+  background: rgba(255,255,255,0.25);
+}
+
+#title{
+  font-family: Fraunces, serif;
+  font-weight: 800;
+  font-size: 16px;
+  margin-right: auto;
+  color: var(--choco);
+}
+
+#status{
+  font-weight: 800;
+  color: rgba(72,38,29,0.85);
+}
+
+/* Buttons */
+button{
+  padding: 9px 14px;
+  border-radius: 14px;
+  border: 2px solid rgba(72,38,29,0.25);
+  background: var(--sky);
+  color: var(--choco);
+  font-weight: 800;
+  cursor:pointer;
+}
+button:hover{ filter: brightness(0.98); }
+button:active{ transform: translateY(1px); }
+
+button.danger{
+  background: var(--claret);
+  color: white;
+}
+
+#mapWrap{
+  position: relative;
+
+  width: 100vw;          /* change to 80vw for ~10% margins each side */
+  max-width: 1600px;
+  margin: 0 auto;
+
+  aspect-ratio: 4 / 3;  /* IMPORTANT: controls height based on width */
+  height: auto;         /* let aspect-ratio decide */
+
+  background: rgba(255,255,255,0.22);
+  overflow: hidden;
+}
+
+#map{
+  width:100%;
+  height:100%;
+  object-fit: contain;  /* shows the whole map */
+  display:block;
+  background: rgba(255,255,255,0.15);
+}
+
+#canvas{
+  position:absolute;
+  left:0; top:0;
+  width:100%;
+  height:100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* Editor under map */
+.editor{
+  padding: 12px 14px;
+  border-top: 1px solid rgba(72,38,29,0.18);
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: rgba(255,255,255,0.20);
+}
+
+@media(max-width:900px){
+  .editor{ grid-template-columns: 1fr; }
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+input, select{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(72,38,29,0.25);
+  background: rgba(255,255,255,0.55);
+  color: var(--choco);
+}
+
+select{ min-height: 220px; }
+.smallhint{
+  font-size: 12px;
+  opacity: 0.85;
+}
+</style>
+</head>
+
+<body>
+
+<div id="pageTitleBar">
+  <div id="topTitle">Evropa města</div>
+</div>
+
+<div id="findSticky">
+  <div id="findText">Find: —</div>
+</div>
+
+<div class="container">
+  <div class="map-card">
+
+    <div class="map-header">
+      <div id="title">Map Quiz</div>
+
+      <button onclick="setMode('setup')">Setup</button>
+      <button onclick="setMode('quiz')">Quiz</button>
+      <button class="danger" onclick="resetAll()">Reset</button>
+
+      <span id="status">Mode: setup</span>
+    </div>
+
+    <div id="mapWrap">
+      <img id="map" src="map.png" alt="Map">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="editor">
+      <div>
+        <div class="row" style="margin-bottom:10px;">
+          <button id="btnRename" type="button">Rename</button>
+          <button id="btnMove" type="button">Move</button>
+          <button class="danger" id="btnDelete" type="button">Delete</button>
+        </div>
+        <div class="smallhint">
+          Setup: click a dot to select. “Move” then click new spot.<br>
+          Quiz: correct = green. 3 misses = red, then next.
+        </div>
+      </div>
+
+      <div>
+        <input id="searchBox" placeholder="Search..." />
+        <div style="height:10px;"></div>
+        <select id="pointList" size="10"></select>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const img = document.getElementById('map');
+
+const KEY = "mapquiz_points_norm_v3";
+
+let points = JSON.parse(localStorage.getItem(KEY) || "[]"); // normalized
+let mode = "setup";
+
+let selectedIndex = -1;
+let moveArmed = false;
+
+let currentQuiz = null;
+let solved = new Set();
+let failed = new Set();
+let attempts = 0;
+
+const DOT_MM = 3;
+const HIT_RADIUS = 8;  // setup selection tolerance (px)
+const QUIZ_RADIUS = 10; // smaller quiz hit area
+
+function setTarget(t){ document.getElementById("findText").innerText = t; }
+function setStatus(t){ document.getElementById("status").innerText = t; }
+
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(points));
+  renderList();
+}
+
+function mmToPx(mm){ return mm * (96/25.4); }
+
+function resizeCanvas(){
+  const r = document.getElementById("mapWrap").getBoundingClientRect();
+  canvas.width = Math.round(r.width);
+  canvas.height = Math.round(r.height);
+  drawPoints();
+}
+
+function getRect(){
+  const wrap = document.getElementById("mapWrap").getBoundingClientRect();
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+  const cw = wrap.width;
+  const ch = wrap.height;
+
+  if (!iw || !ih || !cw || !ch) return {x:0,y:0,w:cw,h:ch};
+
+  const ir = iw/ih;
+  const br = cw/ch;
+
+  let w,h,x,y;
+  if(ir > br){
+    w = cw;
+    h = cw/ir;
+    x = 0;
+    y = (ch - h)/2;
+  } else {
+    h = ch;
+    w = ch*ir;
+    y = 0;
+    x = (cw - w)/2;
+  }
+  return {x,y,w,h};
+}
+
+function normToPx(p){
+  const r = getRect();
+  return { x: r.x + p.x * r.w, y: r.y + p.y * r.h };
+}
+
+function pxToNorm(x,y){
+  const r = getRect();
+  const cx = Math.min(Math.max(x, r.x), r.x + r.w);
+  const cy = Math.min(Math.max(y, r.y), r.y + r.h);
+  return { x: (cx - r.x) / r.w, y: (cy - r.y) / r.h };
+}
+
+function drawPoints(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const radius = mmToPx(DOT_MM)/2;
+
+  for(let i=0;i<points.length;i++){
+    const p = normToPx(points[i]);
+
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+
+    if(mode==="quiz" && solved.has(i)) ctx.fillStyle = "#16a34a";
+    else if(mode==="quiz" && failed.has(i)) ctx.fillStyle = "#cc0000";
+    else ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--dot').trim() || "#0420f9";
+
+    ctx.fill();
+
+    if(mode==="setup" && i===selectedIndex){
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(72,38,29,0.65)";
+      ctx.stroke();
+    }
+  }
+}
+
+function setMode(m){
+  mode=m;
+  selectedIndex = -1;
+  moveArmed = false;
+
+  if(mode==="quiz"){
+    solved = new Set();
+    failed = new Set();
+    attempts = 0;
+    startQuiz();
+    setStatus("Mode: quiz");
+  } else {
+    currentQuiz = null;
+    setTarget("Find: —");
+    setStatus("Mode: setup");
+  }
+
+  drawPoints();
+  renderList();
+}
+
+function startQuiz(){
+  attempts = 0;
+
+  if(points.length===0){
+    currentQuiz = null;
+    setTarget("Find: —");
+    return;
+  }
+
+  const remaining = [];
+  for(let i=0;i<points.length;i++){
+    if(!solved.has(i) && !failed.has(i)) remaining.push(i);
+  }
+
+  if(remaining.length===0){
+    currentQuiz = null;
+    setTarget("Finished 🎉");
+    return;
+  }
+
+  const idx = remaining[Math.floor(Math.random()*remaining.length)];
+  currentQuiz = { index: idx };
+  setTarget("Find: " + (points[idx].name || "—"));
+}
+
+canvas.addEventListener("click", (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if(mode==="setup"){
+    const r = getRect();
+    const inside =
+      x >= r.x && x <= r.x + r.w &&
+      y >= r.y && y <= r.y + r.h;
+
+    if(moveArmed && selectedIndex >= 0){
+      const n = pxToNorm(x,y);
+      points[selectedIndex].x = n.x;
+      points[selectedIndex].y = n.y;
+      moveArmed = false;
+      save();
+      drawPoints();
+      return;
+    }
+
+    let found = -1;
+    for(let i=0;i<points.length;i++){
+      const p = normToPx(points[i]);
+      if(Math.hypot(p.x-x,p.y-y) < HIT_RADIUS){
+        found = i;
+        break;
+      }
+    }
+    if(found >= 0){
+      selectedIndex = found;
+      drawPoints();
+      return;
+    }
+
+    if(!inside){
+      alert("Click on the actual map (not the empty margin).");
+      return;
+    }
+
+    const name = prompt("City name:");
+    if(!name) return;
+
+    const n = pxToNorm(x,y);
+    points.push({ x:n.x, y:n.y, name });
+    selectedIndex = points.length - 1;
+    save();
+    drawPoints();
+    return;
+  }
+
+  if(mode==="quiz"){
+    if(!currentQuiz) return;
+
+    const target = normToPx(points[currentQuiz.index]);
+    const dist = Math.hypot(target.x-x, target.y-y);
+
+    if(dist < QUIZ_RADIUS){
+      solved.add(currentQuiz.index);
+      attempts = 0;
+      drawPoints();
+      startQuiz();
+    } else {
+      attempts++;
+      if(attempts >= 3){
+        failed.add(currentQuiz.index);
+        attempts = 0;
+        drawPoints();
+        startQuiz();
+      }
+    }
+  }
+});
+
+function renderList(){
+  const list = document.getElementById("pointList");
+  const q = (document.getElementById("searchBox").value || "").toLowerCase();
+
+  list.innerHTML = "";
+  for(let i=0;i<points.length;i++){
+    const nm = points[i].name || "";
+    if(q && !nm.toLowerCase().includes(q)) continue;
+
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${i+1}. ${nm}`;
+    if(i === selectedIndex) opt.selected = true;
+    list.appendChild(opt);
+  }
+}
+
+document.getElementById("searchBox").addEventListener("input", renderList);
+document.getElementById("pointList").addEventListener("change", (e)=>{
+  const idx = parseInt(e.target.value, 10);
+  if(Number.isNaN(idx)) return;
+  selectedIndex = idx;
+  moveArmed = false;
+  drawPoints();
+});
+
+document.getElementById("btnRename").onclick = ()=>{
+  if(mode !== "setup") return alert("Switch to Setup.");
+  if(selectedIndex < 0) return alert("Select a point first.");
+  const cur = points[selectedIndex].name || "";
+  const n = prompt("New name:", cur);
+  if(!n) return;
+  points[selectedIndex].name = n;
+  save();
+  drawPoints();
+};
+
+document.getElementById("btnMove").onclick = ()=>{
+  if(mode !== "setup") return alert("Switch to Setup.");
+  if(selectedIndex < 0) return alert("Select a point first.");
+  moveArmed = true;
+};
+
+document.getElementById("btnDelete").onclick = ()=>{
+  if(mode !== "setup") return alert("Switch to Setup.");
+  if(selectedIndex < 0) return alert("Select a point first.");
+  if(!confirm(`Delete "${points[selectedIndex].name || ""}"?`)) return;
+  points.splice(selectedIndex, 1);
+  selectedIndex = -1;
+  moveArmed = false;
+  save();
+  drawPoints();
+};
+
+function resetAll(){
+  if(!confirm("Delete all points?")) return;
+  localStorage.removeItem(KEY);
+  points = [];
+  solved = new Set();
+  failed = new Set();
+  attempts = 0;
+  selectedIndex = -1;
+  moveArmed = false;
+  currentQuiz = null;
+  setTarget("Find: —");
+  drawPoints();
+  renderList();
+}
+
+function init(){
+  resizeCanvas();
+  renderList();
+  drawPoints();
+  setStatus("Mode: " + mode);
+}
+
+img.addEventListener("load", init);
+window.addEventListener("resize", resizeCanvas);
+if (img.complete) init();
+
+setMode("setup");
+</script>
+</body>
+</html>
