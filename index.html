@@ -428,38 +428,31 @@ viewport.addEventListener("click", (e)=>{
   const dist = Math.hypot(target.x - pos.x, target.y - pos.y);
 
   if(dist <= HIT_RADIUS_PX){
-    // correct
     solved.add(currentIndex);
     attempts = 0;
-    drawPoints();
     pickNext();
-  } else {
-    // wrong
-    attempts++;
-
-    flashWrong();
-
-    // mark wrong click position
-    wrongMark = {
-      x: pos.x,
-      y: pos.y,
-      until: performance.now() + 600
-    };
-
-    if(attempts >= 3){
-      // reveal correct hotspot
-      revealIndex = currentIndex;
-      revealUntil = performance.now() + 1200;
-
-      failed.add(currentIndex);
-      attempts = 0;
-      pickNext();
-    }
-
     drawPoints();
+  } } else {
+  attempts++;
+
+  // visual wrong feedback
+  flashWrong();
+  wrongMark = { x: pos.x, y: pos.y, until: performance.now() + 550 };
+
+  if(attempts >= 3){
+    // show correct hotspot briefly
+    revealIndex = currentIndex;
+    revealUntil = performance.now() + 1200;
+
+    failed.add(currentIndex);
+    attempts = 0;
+    pickNext();
+  }
+
+  drawPoints();
+}
   }
 });
-
 /* Buttons (bottom bar) */
 document.getElementById("zoomIn").onclick = ()=>{
   zoom = Math.min(ZOOM_MAX, zoom + ZOOM_STEP);
